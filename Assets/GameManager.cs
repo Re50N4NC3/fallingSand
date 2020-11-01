@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace SA {
+namespace GRD {
     public class GameManager : MonoBehaviour {
         public Texture2D levelTex;
         Texture2D textureInstance;
@@ -10,6 +10,9 @@ namespace SA {
 
         int maxX;
         int maxY;
+
+        public int chunkMaxX;
+        public int chunkMaxY;
 
         int brushSize = 2;
 
@@ -32,7 +35,11 @@ namespace SA {
             maxX = levelTex.width;
             maxY = levelTex.height;
 
+            chunkMaxX = maxX / chunkSize;
+            chunkMaxY = maxY / chunkSize;
+
             grid = new Node[maxX, maxY];
+            chunkAgeCounter = new int[chunkMaxX, chunkMaxY];
 
             textureInstance = new Texture2D(maxX, maxY) {
                 filterMode = FilterMode.Point
@@ -77,10 +84,6 @@ namespace SA {
 
             //clicked with mouse
             if (Input.GetMouseButton(0)) {
-                // draw with color
-                // Color c = Color.white;
-                // c.a = 1;
-
                 for(int x = -brushSize; x < brushSize; x++) {
                     for(int y = -brushSize; y < brushSize; y++) {
                         int targetX = x + curNode.x;
@@ -95,56 +98,137 @@ namespace SA {
 
                         node.isEmpty = true; 
 
-                        // textureInstance.SetPixel(targetX, targetY, c);
-
                         // change cell type
                         node.cellType = 1;
                         node.cellTypeDelta = 1;
+                        node.unchangedAge = 0;
+                        chunkAgeCounter[Mod(targetX, chunkSize), Mod(targetY, chunkSize)] = 0;
                     }
                 }
             }
         }
 
         void UpdateGrid() {
-            UpdateGridChanges();
-            UpdateGridTypes();
-        }
+            for (int x = 0; x < chunkMaxX; x++) {
+                for (int y = 0; y < chunkMaxY; y++) {
+                    if (chunkAgeCounter[x, y] < chunkSize * chunkSize) { UpdateGridChanges(x, y); }
+                }
+            }
 
-        void UpdateGridChanges() {
-            for (int x = 1; x < maxX - 1; x++) {
-                for (int y = 1; y < maxY - 1; y++) {
-                    Node checkedNode = GetNode(x, y);
+            for (int x = 0; x < chunkMaxX; x++) {
+                for (int y = 0; y < chunkMaxY; y++) {
+                    if (chunkAgeCounter[x, y] < chunkSize * chunkSize) { UpdateGridTypes(x, y); }
+                }
+            }
 
-                    // TODO here will be the logic for types
-                    if (checkedNode.cellType == 1) {
-                        if (GetNode(x, y - 1).cellType == 0 && y > 20) {
-                            checkedNode.cellTypeDelta = 0;
-                            GetNode(x, y - 1).cellTypeDelta = 1;
-                        }
-                        else {
-                            if (GetNode(x - 1, y - 1).cellType == 0 && y > 20) {
-                                checkedNode.cellTypeDelta = 0;
-                                GetNode(x - 1, y - 1).cellTypeDelta = 1;
-                            }
-                            else {
-                                if (GetNode(x + 1, y - 1).cellType == 0 && y > 20) {
-                                    checkedNode.cellTypeDelta = 0;
-                                    GetNode(x + 1, y - 1).cellTypeDelta = 1;
-                                }
-                            }
-                        }
-                    }
+            // debug chunk grids ////////////////////////////
+            for (int x = 0; x <= chunkMaxX; x++) {
+                for (int y = 0; y <= chunkMaxY; y++) {
+                    Debug.DrawLine(new Vector3(0, y * chunkSize, 0), new Vector3(300, y * chunkSize, 0), Color.red);
+                    Debug.DrawLine(new Vector3(x * chunkSize, 0, 0), new Vector3(x * chunkSize, 300, 0), Color.red);
                 }
             }
         }
 
-        void UpdateGridTypes() {
-            for (int x = 1; x < maxX - 1; x++) {
-                for (int y = 1; y < maxY - 1; y++) {
+        void UpdateGridChanges(int chunkX, int chunkY) {
+            for (int x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x++) {
+                for (int y = chunkY * chunkSize; y < chunkY * chunkSize + chunkSize; y++) {
                     Node checkedNode = GetNode(x, y);
 
-                    checkedNode.cellType = checkedNode.cellTypeDelta;
+                    // TODO here will be the logic for types and nearby cells age reset
+                    // logic should take two arguments, current node, and node to change
+                    // node to change will be determined by taking speed of the current node
+                    // or maybe other variables, everything should take place alongside collision checks
+                    // maybe those should be node functions
 
+                    if (checkedNode.cellType == 1) {
+                        if (GetNode(x, y - 1).cellType == 0 && y > 5) {
+                            checkedNode.cellTypeDelta = 0;
+                            GetNode(x, y - 1).cellTypeDelta = 1;
+                            
+                            // check if change occurs on the edge to activate other chunks
+                            if (y <= (chunkY * chunkSize + chunkSize) - 1) {
+                                if (chunkY > 0) {
+                                    chunkAgeCounter[chunkX, chunkY - 1] = 0;
+                                }
+                            }
+                        }
+                        else {
+                            int sideRoll = Random.Range(0, 2);
+                            if (sideRoll == 0) { sideRoll = -1; }
+
+                            if (GetNode(x + sideRoll, y - 1).cellType == 0 && y > 5) {
+                                checkedNode.cellTypeDelta = 0;
+                                GetNode(x + sideRoll, y - 1).cellTypeDelta = 1;
+
+                                // check if change occurs on the edge to activate other chunks
+                                if (y <= (chunkY * chunkSize + chunkSize) - 1) {
+                                    if (chunkY > 0) {
+                                        chunkAgeCounter[chunkX, chunkY - 1] = 0;
+                                    }
+                                }
+
+                                if (x >= (chunkX * chunkSize + chunkSize) - 1 || x <= (chunkX * chunkSize) + 1) {
+                                    if (chunkX > 0 && chunkX < chunkMaxX) {
+                                        chunkAgeCounter[chunkX + sideRoll, chunkY] = 0;
+                                    }
+                                }
+                            }
+
+                            if (GetNode(x - 1, y - 1).cellType == 0 && y > 5) {
+                                checkedNode.cellTypeDelta = 0;
+                                GetNode(x - 1, y - 1).cellTypeDelta = 1;
+
+                                // check if change occurs on the edge to activate other chunks
+                                if (y == (chunkY * chunkSize + chunkSize) && x == (chunkX * chunkSize + chunkSize)) {
+                                    if (chunkX > 0) {
+                                        chunkAgeCounter[chunkX - 1, chunkY - 1] = 0;
+                                    }
+                                }
+                            }
+                            else {
+                                if (GetNode(x + 1, y - 1).cellType == 0 && y > 5) {
+                                    checkedNode.cellTypeDelta = 0;
+                                    GetNode(x + 1, y - 1).cellTypeDelta = 1;
+
+                                    // check if change occurs on the edge to activate other chunks
+                                    if (y == (chunkY * chunkSize + chunkSize) && x == (chunkX * chunkSize + chunkSize)) {
+                                        if (chunkY < chunkMaxY && chunkY > 0) {
+                                            if (chunkX < chunkMaxX) {
+                                                chunkAgeCounter[chunkX + 1, chunkY - 1] = 0;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // until then, above part is scuffed and should be done faster and in more optimal way
+                }
+            }
+        }
+
+        void UpdateGridTypes(int chunkX, int chunkY) {
+            for (int x = chunkX * chunkSize; x < chunkX * chunkSize + chunkSize; x++) {
+                for (int y = chunkY * chunkSize; y < chunkY * chunkSize + chunkSize; y++) {
+                    Node checkedNode = GetNode(x, y);
+
+                    // No change to cell type occurs
+                    if (checkedNode.cellType == checkedNode.cellTypeDelta) {
+                        checkedNode.unchangedAge += 1;
+
+                        // increase counter for chunk check
+                        if (checkedNode.unchangedAge > 2) {
+                            chunkAgeCounter[chunkX, chunkY] += 1;
+                        }
+                    }
+                    // there was a cell type change
+                    else {
+                        checkedNode.cellType = checkedNode.cellTypeDelta;
+                        checkedNode.unchangedAge = 0;
+                        chunkAgeCounter[chunkX, chunkY] = 0;
+                    }
+                    
                     UpdateGridVisuals(checkedNode, x, y);
                         
                     ResetGridDelta(checkedNode);  // reset deltas here for optimal usage of loops
@@ -188,12 +272,20 @@ namespace SA {
         }
 
         Node GetNode(int x, int y) {
-            if (x < 0 || y < 0 || x > maxX - 1 || y >maxY - 1) {
+            if (x < 0 || y < 0 || x > maxX - 1 || y > maxY - 1) {
                 return null;
             }
             else {
                 return grid[x, y];
             }
+        }
+
+        int Mod(int a, int b) {
+            if (a < b) {
+                return 0;
+            }
+
+            return (a - (a % b)) / b;
         }
     }
 
@@ -211,6 +303,5 @@ namespace SA {
 
         public int cellType;
         public int cellTypeDelta;
-        
     }
 }
