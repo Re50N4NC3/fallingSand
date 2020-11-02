@@ -143,8 +143,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   levelTex: {fileID: 2800000, guid: 9a08962e7ecd9a547befd6e028da4f31, type: 3}
   levelRenderer: {fileID: 2033175784}
-  chunkMaxX: 0
-  chunkMaxY: 0
+  nodeDataJson: {fileID: 4900000, guid: ec05eadb85ab95e4297a4103b66b6a55, type: 3}
+  gravity: 2
 --- !u!4 &399046943
 Transform:
   m_ObjectHideFlags: 0
@@ -195,7 +195,7 @@ Camera:
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 2
-  m_BackGroundColor: {r: 0.19215687, g: 0.3019608, b: 0.4745098, a: 0}
+  m_BackGroundColor: {r: 0.16037738, g: 0.16037738, b: 0.16037738, a: 0}
   m_projectionMatrixMode: 1
   m_SensorSize: {x: 36, y: 24}
   m_LensShift: {x: 0, y: 0}

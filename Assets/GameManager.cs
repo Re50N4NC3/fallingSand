@@ -11,10 +11,11 @@ namespace GRD {
         int maxX;
         int maxY;
 
-        public int chunkMaxX;
-        public int chunkMaxY;
+        int chunkMaxX;
+        int chunkMaxY;
 
         int brushSize = 2;
+        int pickedType = 1;
 
         readonly int chunkSize = 64;
         int chunkAmountX;
@@ -22,13 +23,30 @@ namespace GRD {
         int[,] chunkAgeCounter;
 
         Node[,] grid;
+        RootNodeData nodeData;
 
         Vector3 mousePos;
         Node curNode;
         Node prevNode;
+        
+        // nodes stats
+        public TextAsset nodeDataJson;
+
+        enum StateName { solid, liquid, gas, }
+        public int gravity = 2;
 
         private void Start() {
+            ReadNodeData();
             CreateLevel();
+        }
+
+        private void ReadNodeData() {
+            nodeData = JsonUtility.FromJson<RootNodeData>(FixJson(nodeDataJson.text));
+        }
+
+        string FixJson(string value) {
+            value = "{\"particleDataRoot\":" + value + "}";
+            return value;
         }
 
         private void CreateLevel() {
@@ -55,13 +73,6 @@ namespace GRD {
                     Color c = levelTex.GetPixel(x, y);
                     textureInstance.SetPixel(x, y, c);
 
-                    if (c.r == 0 && c.g == 0 && c.b == 0) {
-                        newNode.isEmpty = true;
-                    }
-                    else {
-                        newNode.isEmpty = false;    
-                    }
-
                     grid[x, y] = newNode;  // generate nodes
                     newNode.cellType = 0;  // reset grid types
                     newNode.cellTypeDelta = 0;  // reset grid types difference, should use function
@@ -77,11 +88,12 @@ namespace GRD {
         private void Update() {
             GetMousePos();
             HandleMouseInput();
+            ChangePlacedType();
+
             UpdateGrid();
         }
 
         void HandleMouseInput() {
-
             //clicked with mouse
             if (Input.GetMouseButton(0)) {
                 for(int x = -brushSize; x < brushSize; x++) {
@@ -96,11 +108,9 @@ namespace GRD {
                             continue;
                         }
 
-                        node.isEmpty = true; 
-
                         // change cell type
-                        node.cellType = 1;
-                        node.cellTypeDelta = 1;
+                        node.cellType = pickedType;
+                        node.cellTypeDelta = node.cellType;
                         node.unchangedAge = 0;
                         chunkAgeCounter[Mod(targetX, chunkSize), Mod(targetY, chunkSize)] = 0;
                     }
@@ -141,68 +151,76 @@ namespace GRD {
                     // or maybe other variables, everything should take place alongside collision checks
                     // maybe those should be node functions
 
-                    if (checkedNode.cellType == 1) {
-                        if (GetNode(x, y - 1).cellType == 0 && y > 5) {
-                            checkedNode.cellTypeDelta = 0;
-                            GetNode(x, y - 1).cellTypeDelta = 1;
+                    //if (checkedNode.cellType == 1) {
+                    //    if (GetNode(x, y - 1).cellType == 0 && y > 5) {
+                    //        checkedNode.cellTypeDelta = 0;
+                    //        GetNode(x, y - 1).cellTypeDelta = 1;
                             
-                            // check if change occurs on the edge to activate other chunks
-                            if (y <= (chunkY * chunkSize + chunkSize) - 1) {
-                                if (chunkY > 0) {
-                                    chunkAgeCounter[chunkX, chunkY - 1] = 0;
-                                }
-                            }
-                        }
-                        else {
-                            int sideRoll = Random.Range(0, 2);
-                            if (sideRoll == 0) { sideRoll = -1; }
+                    //        // check if change occurs on the edge to activate other chunks
+                    //        if (y <= (chunkY * chunkSize + chunkSize) - 1) {
+                    //            if (chunkY > 0) {
+                    //                chunkAgeCounter[chunkX, chunkY - 1] = 0;
+                    //            }
+                    //        }
+                    //    }
+                    //    else {
+                    //        int sideRoll = Random.Range(0, 2);
+                    //        if (sideRoll == 0) { sideRoll = -1; }
 
-                            if (GetNode(x + sideRoll, y - 1).cellType == 0 && y > 5) {
-                                checkedNode.cellTypeDelta = 0;
-                                GetNode(x + sideRoll, y - 1).cellTypeDelta = 1;
+                    //        if (GetNode(x + sideRoll, y - 1).cellType == 0 && y > 5) {
+                    //            checkedNode.cellTypeDelta = 0;
+                    //            GetNode(x + sideRoll, y - 1).cellTypeDelta = 1;
 
-                                // check if change occurs on the edge to activate other chunks
-                                if (y <= (chunkY * chunkSize + chunkSize) - 1) {
-                                    if (chunkY > 0) {
-                                        chunkAgeCounter[chunkX, chunkY - 1] = 0;
-                                    }
-                                }
+                    //            // check if change occurs on the edge to activate other chunks
+                    //            if (y <= (chunkY * chunkSize + chunkSize) - 1) {
+                    //                if (chunkY > 0) {
+                    //                    chunkAgeCounter[chunkX, chunkY - 1] = 0;
+                    //                }
+                    //            }
 
-                                if (x >= (chunkX * chunkSize + chunkSize) - 1 || x <= (chunkX * chunkSize) + 1) {
-                                    if (chunkX > 0 && chunkX < chunkMaxX) {
-                                        chunkAgeCounter[chunkX + sideRoll, chunkY] = 0;
-                                    }
-                                }
-                            }
+                    //            // left
+                    //            if (x <= (chunkX * chunkSize)) {
+                    //                if (chunkX > 0) {
+                    //                    chunkAgeCounter[chunkX - 1, chunkY] = 0;
+                    //                }
+                    //            }
 
-                            if (GetNode(x - 1, y - 1).cellType == 0 && y > 5) {
-                                checkedNode.cellTypeDelta = 0;
-                                GetNode(x - 1, y - 1).cellTypeDelta = 1;
+                    //            // right
+                    //            if (x >= (chunkX * chunkSize + chunkSize)) {
+                    //                if (chunkX < chunkMaxX) {
+                    //                    chunkAgeCounter[chunkX + 1, chunkY] = 0;
+                    //                }
+                    //            }
+                    //        }
 
-                                // check if change occurs on the edge to activate other chunks
-                                if (y == (chunkY * chunkSize + chunkSize) && x == (chunkX * chunkSize + chunkSize)) {
-                                    if (chunkX > 0) {
-                                        chunkAgeCounter[chunkX - 1, chunkY - 1] = 0;
-                                    }
-                                }
-                            }
-                            else {
-                                if (GetNode(x + 1, y - 1).cellType == 0 && y > 5) {
-                                    checkedNode.cellTypeDelta = 0;
-                                    GetNode(x + 1, y - 1).cellTypeDelta = 1;
+                    //        if (GetNode(x - 1, y - 1).cellType == 0 && y > 5) {
+                    //            checkedNode.cellTypeDelta = 0;
+                    //            GetNode(x - 1, y - 1).cellTypeDelta = 1;
 
-                                    // check if change occurs on the edge to activate other chunks
-                                    if (y == (chunkY * chunkSize + chunkSize) && x == (chunkX * chunkSize + chunkSize)) {
-                                        if (chunkY < chunkMaxY && chunkY > 0) {
-                                            if (chunkX < chunkMaxX) {
-                                                chunkAgeCounter[chunkX + 1, chunkY - 1] = 0;
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    //            // check if change occurs on the edge to activate other chunks
+                    //            if (y == (chunkY * chunkSize + chunkSize) && x == (chunkX * chunkSize + chunkSize)) {
+                    //                if (chunkX > 0) {
+                    //                    chunkAgeCounter[chunkX - 1, chunkY - 1] = 0;
+                    //                }
+                    //            }
+                    //        }
+                    //        else {
+                    //            if (GetNode(x + 1, y - 1).cellType == 0 && y > 5) {
+                    //                checkedNode.cellTypeDelta = 0;
+                    //                GetNode(x + 1, y - 1).cellTypeDelta = 1;
+
+                    //                // check if change occurs on the edge to activate other chunks
+                    //                if (y == (chunkY * chunkSize + chunkSize) && x == (chunkX * chunkSize + chunkSize)) {
+                    //                    if (chunkY < chunkMaxY && chunkY > 0) {
+                    //                        if (chunkX < chunkMaxX) {
+                    //                            chunkAgeCounter[chunkX + 1, chunkY - 1] = 0;
+                    //                        }
+                    //                    }
+                    //                }
+                    //            }
+                    //        }
+                    //    }
+                    //}
                     // until then, above part is scuffed and should be done faster and in more optimal way
                 }
             }
@@ -217,7 +235,7 @@ namespace GRD {
                     if (checkedNode.cellType == checkedNode.cellTypeDelta) {
                         checkedNode.unchangedAge += 1;
 
-                        // increase counter for chunk check
+                        // increase the counter for chunk check
                         if (checkedNode.unchangedAge > 2) {
                             chunkAgeCounter[chunkX, chunkY] += 1;
                         }
@@ -228,10 +246,10 @@ namespace GRD {
                         checkedNode.unchangedAge = 0;
                         chunkAgeCounter[chunkX, chunkY] = 0;
                     }
-                    
+
+                    // reset deltas and update visuals here for optimal usage of loops
                     UpdateGridVisuals(checkedNode, x, y);
-                        
-                    ResetGridDelta(checkedNode);  // reset deltas here for optimal usage of loops
+                    ResetGridDelta(checkedNode);  
                 }
             }
 
@@ -240,16 +258,12 @@ namespace GRD {
         }
 
         void UpdateGridVisuals(Node nodeToUpdate, int pixelX, int pixelY) {
-            // TODO here will be the auto color assignement
-            Color c = Color.black;
+            Color c = new Color(
+                nodeData.particleDataRoot[nodeToUpdate.cellType].cellColorR,
+                nodeData.particleDataRoot[nodeToUpdate.cellType].cellColorG,
+                nodeData.particleDataRoot[nodeToUpdate.cellType].cellColorB,
+                nodeData.particleDataRoot[nodeToUpdate.cellType].cellColorA);
 
-            if (nodeToUpdate.cellType == 0) {
-                c = Color.black;
-            }
-            if (nodeToUpdate.cellType == 1) {
-                c = Color.white;
-            }
-            
             textureInstance.SetPixel(pixelX, pixelY, c);
         }
 
@@ -262,6 +276,16 @@ namespace GRD {
             mousePos = ray.GetPoint(10);
 
             curNode = GetNodeFromWorldPos(mousePos);
+        }
+
+        void ChangePlacedType() {
+            if (Input.GetKeyDown(KeyCode.Alpha0)) { pickedType = 0; }
+            if (Input.GetKeyDown(KeyCode.Alpha1)) { pickedType = 1; }
+            if (Input.GetKeyDown(KeyCode.Alpha2)) { pickedType = 2; }
+            if (Input.GetKeyDown(KeyCode.Alpha3)) { pickedType = 3; }
+            if (Input.GetKeyDown(KeyCode.Alpha4)) { pickedType = 4; }
+            if (Input.GetKeyDown(KeyCode.Alpha5)) { pickedType = 5; }
+            if (Input.GetKeyDown(KeyCode.Alpha6)) { pickedType = 6; }
         }
 
         Node GetNodeFromWorldPos(Vector3 worldPos) {
@@ -293,15 +317,30 @@ namespace GRD {
         public int x;
         public int y;
 
+        public int velX;
+        public int velY;
+        public int accX;
+        public int accY;
+
         public int unchangedAge = 0;
-
-        public bool isEmpty;
-
-        public bool isLiquid;
-        public bool isSolid;
-        public bool isGas;
-
+        
         public int cellType;
         public int cellTypeDelta;
+    }
+
+    [System.Serializable]
+    public class NodeJsonData {
+        public int cellTypeNumber;
+        public string cellName;
+        public int state;
+        public float cellColorR;
+        public float cellColorG;
+        public float cellColorB;
+        public float cellColorA;
+    }
+
+    [System.Serializable]
+    public class RootNodeData {
+        public NodeJsonData[] particleDataRoot;
     }
 }

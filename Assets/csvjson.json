@@ -1,0 +1,38 @@
+[
+  {
+    "cellTypeNumber": 0,
+    "cellName": "nothing",
+    "state": 0,
+    "cellColorR": 0,
+    "cellColorG": 0,
+    "cellColorB": 0,
+    "cellColorA": 0
+  },
+  {
+    "cellTypeNumber": 1,
+    "cellName": "everything",
+    "state": 0,
+    "cellColorR": 1,
+    "cellColorG": 1,
+    "cellColorB": 1,
+    "cellColorA": 1
+  },
+  {
+    "cellTypeNumber": 2,
+    "cellName": "sand",
+    "state": 1,
+    "cellColorR": 0.5,
+    "cellColorG": 0.5,
+    "cellColorB": 0.5,
+    "cellColorA": 1
+  },
+  {
+    "cellTypeNumber": 3,
+    "cellName": "water",
+    "state": 2,
+    "cellColorR": 0.25,
+    "cellColorG": 0.75,
+    "cellColorB": 0.8,
+    "cellColorA": 1
+  }
+]
