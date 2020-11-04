@@ -60,8 +60,9 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Assets\GameManager.cs" />
-    <Compile Include="Assets\GeneratePixelMap.cs" />
+    <Compile Include="Assets\Scripts\Map controls\GameManager.cs" />
+    <Compile Include="Assets\Scripts\Map controls\GenerateMap.cs" />
+    <Compile Include="Assets\Scripts\Map controls\LoadJsonData.cs" />
     <Reference Include="Unity.TextMeshPro.Editor">
       <HintPath>C:/Users/Tyst/fallingSand/Library/ScriptAssemblies/Unity.TextMeshPro.Editor.dll</HintPath>
     </Reference>
