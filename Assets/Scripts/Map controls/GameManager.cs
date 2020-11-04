@@ -8,7 +8,7 @@ public class GameManager : MonoBehaviour {
     private LoadJsonData.RootNodeData nodeData;  // loaded json data for all particles is here
 
     // controls variables
-    int brushSize = 1;
+    int brushSize = 3;
     int pickedType = 1;
     Vector3 mousePos;
 
@@ -86,84 +86,7 @@ public class GameManager : MonoBehaviour {
                 Gravity(checkedNode);
                 VelocityChange(checkedNode);
                 VelocityEffect(checkedNode);
-
-                // TODO here will be the logic for types and nearby cells age reset
-                // logic should take two arguments, current node, and node to change
-                // node to change will be determined by taking speed of the current node
-                // or maybe other variables, everything should take place alongside collision checks
-                // maybe those should be node functions
-
-                //if (checkedNode.cellType == 1) {
-                //    if (GetNode(x, y - 1).cellType == 0 && y > 5) {
-                //        checkedNode.cellTypeDelta = 0;
-                //        GetNode(x, y - 1).cellTypeDelta = 1;
-                            
-                //        // check if change occurs on the edge to activate other chunks
-                //        if (y <= (chunkY * map.chunkSize + map.chunkSize) - 1) {
-                //            if (chunkY > 0) {
-                //                map.chunkAgeCounter[chunkX, chunkY - 1] = 0;
-                //            }
-                //        }
-                //    }
-                //    else {
-                //        int sideRoll = Random.Range(0, 2);
-                //        if (sideRoll == 0) { sideRoll = -1; }
-
-                //        if (GetNode(x + sideRoll, y - 1).cellType == 0 && y > 5) {
-                //            checkedNode.cellTypeDelta = 0;
-                //            GetNode(x + sideRoll, y - 1).cellTypeDelta = 1;
-
-                //            // check if change occurs on the edge to activate other chunks
-                //            if (y <= (chunkY * map.chunkSize + map.chunkSize) - 1) {
-                //                if (chunkY > 0) {
-                //                    map.chunkAgeCounter[chunkX, chunkY - 1] = 0;
-                //                }
-                //            }
-
-                //            // left
-                //            if (x <= (chunkX * map.chunkSize)) {
-                //                if (chunkX > 0) {
-                //                    map.chunkAgeCounter[chunkX - 1, chunkY] = 0;
-                //                }
-                //            }
-
-                //            // right
-                //            if (x >= (chunkX * map.chunkSize + map.chunkSize)) {
-                //                if (chunkX < map.chunkMaxX) {
-                //                    map.chunkAgeCounter[chunkX + 1, chunkY] = 0;
-                //                }
-                //            }
-                //        }
-
-                //        if (GetNode(x - 1, y - 1).cellType == 0 && y > 5) {
-                //            checkedNode.cellTypeDelta = 0;
-                //            GetNode(x - 1, y - 1).cellTypeDelta = 1;
-
-                //            // check if change occurs on the edge to activate other chunks
-                //            if (y == (chunkY * map.chunkSize + map.chunkSize) && x == (chunkX * map.chunkSize + map.chunkSize)) {
-                //                if (chunkX > 0) {
-                //                    map.chunkAgeCounter[chunkX - 1, chunkY - 1] = 0;
-                //                }
-                //            }
-                //        }
-                //        else {
-                //            if (GetNode(x + 1, y - 1).cellType == 0 && y > 5) {
-                //                checkedNode.cellTypeDelta = 0;
-                //                GetNode(x + 1, y - 1).cellTypeDelta = 1;
-
-                //                // check if change occurs on the edge to activate other chunks
-                //                if (y == (chunkY * map.chunkSize + map.chunkSize) && x == (chunkX * map.chunkSize + map.chunkSize)) {
-                //                    if (chunkY < map.chunkMaxY && chunkY > 0) {
-                //                        if (chunkX < map.chunkMaxX) {
-                //                            map.chunkAgeCounter[chunkX + 1, chunkY - 1] = 0;
-                //                        }
-                //                    }
-                //                }
-                //            }
-                //        }
-                //    }
-                //}
-                // until then, above part is scuffed and should be done faster and in more optimal way
+                MovementChunkAwake(checkedNode, chunkX, chunkY);
             }
         }
     }
@@ -171,36 +94,86 @@ public class GameManager : MonoBehaviour {
     void Gravity(Node node) {
         if (node.y > 0) {
             if (GetNode(node.x, node.y - 1).cellType == 0) {
-                //node.accY -= gravity;
+                if (GetNode(node.x, node.y).cellType != 0) {
+                    node.accY -= gravity;
+                }
             }
         }
     }
 
     void VelocityChange(Node node) {
-        //node.velX += node.accX;
-        //node.velY += node.accY;
-
         if (node.y > 0) {
             if (GetNode(node.x, node.y - 1).cellType == 0) {
-                node.velY = -1;
+                node.velY += node.accY;
             }
             else {
                 node.velY = 0;
             }
         }
+
+        if (node.cellType == 0) {
+            node.velX = 0;
+            node.velY = 0;
+        }
     }
 
     void VelocityEffect(Node node) {
-        // all stats should be swapped, leaving only position unchanged
-        if (node.y > 2) {
-            Node exchangeNode = GetNode(node.x, node.y - 1);
+        node.velX = Mathf.Clamp(node.velX, -1, 1);
+        node.velY = Mathf.Clamp(node.velY, -1, 1);
 
-            map.grid[node.x, node.y].cellTypeDelta = exchangeNode.cellType;
-            map.grid[exchangeNode.x, exchangeNode.y].cellTypeDelta = node.cellType;
+        // all stats are swapped between two cells, leaving only position unchanged to match the grid
+        if (node.cellType != 0) {
+            if (node.y > 0 && node.y < map.maxY && node.x > 0 && node.x < map.maxX) {
+                Node exchangeNode = GetNode(node.x + node.velX, node.y + node.velY);
+                
+                int exPosX = exchangeNode.x;
+                int exPosY = exchangeNode.y;
+                int exType = exchangeNode.cellType;
+
+                int curPosX = node.x;
+                int curPosY = node.y;
+                int curType = node.cellType;
+
+                // switch position of the nodes
+                map.grid[exPosX, exPosY] = node;
+                map.grid[exPosX, exPosY].x = exPosX;
+                map.grid[exPosX, exPosY].y = exPosY;
+
+                map.grid[curPosX, curPosY] = exchangeNode;
+                map.grid[curPosX, curPosY].x = curPosX;
+                map.grid[curPosX, curPosY].y = curPosY;
+
+                // bring back types and set deltas
+                // move to (other type)
+                map.grid[exPosX, exPosY].cellTypeDelta = curType;
+                map.grid[exPosX, exPosY].cellType = exType;
+
+                // move from (0 here)
+                map.grid[curPosX, curPosY].cellTypeDelta = exType;
+                map.grid[curPosX, curPosY].cellType = curType;
+            }
+        }
+    }
+
+    // change it to one universal function to remove any repeats
+    void MovementChunkAwake(Node node, int chunkX, int chunkY) {
+        // left
+        if (node.x <= chunkX * map.chunkSize) {
+            if (chunkX > 0) { map.chunkAgeCounter[chunkX - 1, chunkY] = 0; }
+        }
+        // right
+        if (node.x >= chunkX * map.chunkSize + map.chunkSize) {
+            if (chunkX < map.chunkMaxX) { map.chunkAgeCounter[chunkX + 1, chunkY] = 0; }
         }
 
-        node.x = Mathf.Clamp(node.x, 0, map.maxX);
-        node.y = Mathf.Clamp(node.y, 0, map.maxY);
+        // bot
+        if (node.y <= chunkY * map.chunkSize) {
+            if (chunkY > 0) { map.chunkAgeCounter[chunkX, chunkY - 1] = 0; }
+        }
+        // top
+        if (node.y >= chunkY * map.chunkSize + map.chunkSize) {
+            if (chunkY < map.chunkMaxY) { map.chunkAgeCounter[chunkX, chunkY + 1] = 0; }
+        }
     }
 
     void UpdateGridTypes(int chunkX, int chunkY) {
@@ -212,9 +185,9 @@ public class GameManager : MonoBehaviour {
                 if (checkedNode.cellType == checkedNode.cellTypeDelta) {
                     checkedNode.unchangedAge += 1;
 
-                    // increase the counter for chunk check CHANGED HEREEEEE TO 0 FROM 1
+                    // increase the counter for chunk check
                     if (checkedNode.unchangedAge > 2) {
-                        map.chunkAgeCounter[chunkX, chunkY] += 0;
+                        map.chunkAgeCounter[chunkX, chunkY] += 1;
                     }
                 }
                 // there was a cell type change
@@ -225,8 +198,8 @@ public class GameManager : MonoBehaviour {
                 }
 
                 // reset deltas and update visuals here for optimal usage of loops
+                ResetGridDelta(checkedNode);
                 UpdateGridVisuals(checkedNode);
-                ResetGridDelta(checkedNode);  
             }
         }
 
