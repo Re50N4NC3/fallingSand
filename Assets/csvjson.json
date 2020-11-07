@@ -2,7 +2,7 @@
   {
     "cellTypeNumber": 0,
     "cellName": "nothing",
-    "state": 0,
+    "state": 2,
     "cellColorR": 0,
     "cellColorG": 0,
     "cellColorB": 0,
@@ -29,7 +29,7 @@
   {
     "cellTypeNumber": 3,
     "cellName": "water",
-    "state": 2,
+    "state": 3,
     "cellColorR": 0.25,
     "cellColorG": 0.75,
     "cellColorB": 0.8,

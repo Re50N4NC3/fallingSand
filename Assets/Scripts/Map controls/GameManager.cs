@@ -14,7 +14,7 @@ public class GameManager : MonoBehaviour {
 
     // nodes stats
     Node curNode;
-    enum StateName { solid, liquid, gas, }
+    enum StateName { solid, particle, gas, liquid, }
     public int gravity = 2;
 
     private void Awake() {
@@ -52,6 +52,7 @@ public class GameManager : MonoBehaviour {
                     // change cell type
                     node.cellType = pickedType;
                     node.cellTypeDelta = node.cellType;
+                    node.stateOfMatter = nodeData.particleDataRoot[node.cellType].state;
                     node.unchangedAge = 0;
                     map.chunkAgeCounter[Mod(targetX, map.chunkSize), Mod(targetY, map.chunkSize)] = 0;
                 }
@@ -83,86 +84,167 @@ public class GameManager : MonoBehaviour {
             for (int y = chunkY * map.chunkSize; y < chunkY * map.chunkSize + map.chunkSize; y++) {
                 Node checkedNode = GetNode(x, y);
 
-                Gravity(checkedNode);
-                VelocityChange(checkedNode);
+                StateEffect(checkedNode);
                 VelocityEffect(checkedNode);
                 MovementChunkAwake(checkedNode, chunkX, chunkY);
             }
         }
     }
 
-    void Gravity(Node node) {
+    void StateEffect(Node node) {
+        switch (node.stateOfMatter){
+            case (int)StateName.solid:
+                StateBehaviorSolid(node);
+                break;
+
+            case (int)StateName.particle:
+                StateBehaviorParticle(node);
+                break;
+
+            case (int)StateName.gas:
+                break;
+
+            case (int)StateName.liquid:
+                StateBehaviorLiquid(node);
+                break;
+
+        }
+    }
+
+    private static void StateBehaviorSolid(Node node) {
+        node.accX = 0;
+        node.accY = 0;
+
+        node.velX = 0;
+        node.velY = 0;
+    }
+
+    private void StateBehaviorParticle(Node node) {
         if (node.y > 0) {
-            if (GetNode(node.x, node.y - 1).cellType == 0) {
-                if (GetNode(node.x, node.y).cellType != 0) {
-                    node.accY -= gravity;
+            int randomSide = Random.Range(0, 2);
+            if (randomSide == 0) { randomSide = -1; }
+
+            // check under
+            if (GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.gas ||
+                GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.liquid) {
+                node.accY += -1;
+                node.accX = 0;
+            }
+            //check on the sides under
+            else if (node.x + randomSide < map.maxX && node.x + randomSide > 0) {
+                if (GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas ||
+                    GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.liquid) {
+                    node.accY += -1;
+                    node.accX += randomSide;
                 }
+                else {
+                    node.accX = 0;
+                    node.accY = 0;
+
+                    node.velX = 0;
+                    node.velY = 0;
+                }
+            }
+            else {
+                node.accX = 0;
+                node.accY = 0;
+
+                node.velX = 0;
+                node.velY = 0;
             }
         }
     }
 
-    void VelocityChange(Node node) {
+    private void StateBehaviorLiquid(Node node) {
         if (node.y > 0) {
-            if (GetNode(node.x, node.y - 1).cellType == 0) {
-                node.velY += node.accY;
+            int randomSide = Random.Range(0, 2);
+            if (randomSide == 0) { randomSide = -1; }
+
+            // check under
+            if (GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.gas) {
+                node.accY += -1;
+                node.accX = 0;
+            }
+            //check on the sides under
+            else if (node.x + randomSide < map.maxX && node.x + randomSide > 0) {
+                if (GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas) {
+                    node.accY += -1;
+                    node.accX += randomSide;
+                }
+                //check on the sides
+                else if (GetNode(node.x + randomSide, node.y).stateOfMatter == (int)StateName.gas) {
+                    node.accY = 0;
+                    node.accX += randomSide;
+                }
+                else {
+                    node.accX = 0;
+                    node.accY = 0;
+
+                    node.velX = 0;
+                    node.velY = 0;
+                }
             }
             else {
+                node.accX = 0;
+                node.accY = 0;
+
+                node.velX = 0;
                 node.velY = 0;
             }
-        }
-
-        if (node.cellType == 0) {
-            node.velX = 0;
-            node.velY = 0;
         }
     }
 
     void VelocityEffect(Node node) {
+        node.velX = node.accX;
+        node.velY = node.accY;
+
         node.velX = Mathf.Clamp(node.velX, -1, 1);
         node.velY = Mathf.Clamp(node.velY, -1, 1);
 
         // all stats are swapped between two cells, leaving only position unchanged to match the grid
         if (node.cellType != 0) {
-            if (node.y > 0 && node.y < map.maxY && node.x > 0 && node.x < map.maxX) {
+            if (node.y > 1 && node.y < map.maxY - 1 && node.x > 1 && node.x < map.maxX - 1) {
                 Node exchangeNode = GetNode(node.x + node.velX, node.y + node.velY);
-                
-                int exPosX = exchangeNode.x;
-                int exPosY = exchangeNode.y;
-                int exType = exchangeNode.cellType;
 
-                int curPosX = node.x;
-                int curPosY = node.y;
-                int curType = node.cellType;
+                if(exchangeNode.cellType != node.cellType) {
+                    int exPosX = exchangeNode.x;
+                    int exPosY = exchangeNode.y;
+                    int exType = exchangeNode.cellType;
 
-                // switch position of the nodes
-                map.grid[exPosX, exPosY] = node;
-                map.grid[exPosX, exPosY].x = exPosX;
-                map.grid[exPosX, exPosY].y = exPosY;
+                    int curPosX = node.x;
+                    int curPosY = node.y;
+                    int curType = node.cellType;
 
-                map.grid[curPosX, curPosY] = exchangeNode;
-                map.grid[curPosX, curPosY].x = curPosX;
-                map.grid[curPosX, curPosY].y = curPosY;
+                    // switch position of the nodes
+                    map.grid[exPosX, exPosY] = node;
+                    map.grid[exPosX, exPosY].x = exPosX;
+                    map.grid[exPosX, exPosY].y = exPosY;
 
-                // bring back types and set deltas
-                // move to (other type)
-                map.grid[exPosX, exPosY].cellTypeDelta = curType;
-                map.grid[exPosX, exPosY].cellType = exType;
+                    map.grid[curPosX, curPosY] = exchangeNode;
+                    map.grid[curPosX, curPosY].x = curPosX;
+                    map.grid[curPosX, curPosY].y = curPosY;
 
-                // move from (0 here)
-                map.grid[curPosX, curPosY].cellTypeDelta = exType;
-                map.grid[curPosX, curPosY].cellType = curType;
+                    // bring back types and set deltas
+                    // move to (other type)
+                    map.grid[exPosX, exPosY].cellTypeDelta = curType;
+                    map.grid[exPosX, exPosY].cellType = exType;
+
+                    // move from (0 here)
+                    map.grid[curPosX, curPosY].cellTypeDelta = exType;
+                    map.grid[curPosX, curPosY].cellType = curType;
+                }
             }
         }
     }
 
-    // change it to one universal function to remove any repeats
+    // i cant find faster method with loops (consider using quadtrees)
     void MovementChunkAwake(Node node, int chunkX, int chunkY) {
         // left
         if (node.x <= chunkX * map.chunkSize) {
             if (chunkX > 0) { map.chunkAgeCounter[chunkX - 1, chunkY] = 0; }
         }
         // right
-        if (node.x >= chunkX * map.chunkSize + map.chunkSize) {
+        else if (node.x >= chunkX * map.chunkSize + map.chunkSize) {
             if (chunkX < map.chunkMaxX) { map.chunkAgeCounter[chunkX + 1, chunkY] = 0; }
         }
 
@@ -171,7 +253,7 @@ public class GameManager : MonoBehaviour {
             if (chunkY > 0) { map.chunkAgeCounter[chunkX, chunkY - 1] = 0; }
         }
         // top
-        if (node.y >= chunkY * map.chunkSize + map.chunkSize) {
+        else if (node.y >= chunkY * map.chunkSize + map.chunkSize) {
             if (chunkY < map.chunkMaxY) { map.chunkAgeCounter[chunkX, chunkY + 1] = 0; }
         }
     }
@@ -198,6 +280,7 @@ public class GameManager : MonoBehaviour {
                 }
 
                 // reset deltas and update visuals here for optimal usage of loops
+                checkedNode.stateOfMatter = nodeData.particleDataRoot[checkedNode.cellType].state;
                 ResetGridDelta(checkedNode);
                 UpdateGridVisuals(checkedNode);
             }
@@ -221,13 +304,6 @@ public class GameManager : MonoBehaviour {
         nodeToReset.cellTypeDelta = nodeToReset.cellType;
     }
 
-    void GetMousePos() {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        mousePos = ray.GetPoint(10);
-
-        curNode = GetNodeFromWorldPos(mousePos);
-    }
-
     void PickPlacedType() {
         if (Input.GetKeyDown(KeyCode.Alpha0)) { pickedType = 0; }
         if (Input.GetKeyDown(KeyCode.Alpha1)) { pickedType = 1; }
@@ -236,6 +312,13 @@ public class GameManager : MonoBehaviour {
         if (Input.GetKeyDown(KeyCode.Alpha4)) { pickedType = 4; }
         if (Input.GetKeyDown(KeyCode.Alpha5)) { pickedType = 5; }
         if (Input.GetKeyDown(KeyCode.Alpha6)) { pickedType = 6; }
+    }
+
+    void GetMousePos() {
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        mousePos = ray.GetPoint(10);
+
+        curNode = GetNodeFromWorldPos(mousePos);
     }
 
     Node GetNodeFromWorldPos(Vector3 worldPos) {
@@ -273,8 +356,8 @@ public class Node {
     public int accY;
 
     public int unchangedAge = 0;
-        
+
+    public int stateOfMatter;
     public int cellType;
     public int cellTypeDelta;
 }
-
