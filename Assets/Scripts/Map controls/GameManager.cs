@@ -4,60 +4,26 @@ using UnityEngine;
 
 public class GameManager : MonoBehaviour {
     private GenerateMap map;
+    private MapControls controls;
     private LoadJsonData jsonLoader;
     private LoadJsonData.RootNodeData nodeData;  // loaded json data for all particles is here
-
-    // controls variables
-    int brushSize = 3;
-    int pickedType = 1;
-    Vector3 mousePos;
-
+    
     // nodes stats
-    Node curNode;
     enum StateName { solid, particle, gas, liquid, }
-    public int gravity = 2;
 
     private void Awake() {
         map = GetComponent<GenerateMap>();
         jsonLoader = GetComponent<LoadJsonData>();
+        controls = GetComponent<MapControls>();
+        nodeData = jsonLoader.ReadNodeData();
     }
 
     private void Start() {
-        nodeData = jsonLoader.ReadNodeData();
         map.CreateLevel();
     }
 
     private void Update() {
-        GetMousePos();
-        HandleMouseInput();
-        PickPlacedType();
-
         UpdateGrid();
-    }
-
-    void HandleMouseInput() {
-        //clicked with mouse
-        if (Input.GetMouseButton(0)) {
-            for(int x = -brushSize; x < brushSize; x++) {
-                for(int y = -brushSize; y < brushSize; y++) {
-                    int targetX = x + curNode.x;
-                    int targetY = y + curNode.y;
-                    
-                    Node node = GetNode(targetX, targetY);
-
-                    if (node == null) {
-                        continue;
-                    }
-
-                    // change cell type
-                    node.cellType = pickedType;
-                    node.cellTypeDelta = node.cellType;
-                    node.stateOfMatter = nodeData.particleDataRoot[node.cellType].state;
-                    node.unchangedAge = 0;
-                    map.chunkAgeCounter[Mod(targetX, map.chunkSize), Mod(targetY, map.chunkSize)] = 0;
-                }
-            }
-        }
     }
 
     void UpdateGrid() {
@@ -82,7 +48,7 @@ public class GameManager : MonoBehaviour {
     void UpdateGridChanges(int chunkX, int chunkY) {
         for (int x = chunkX * map.chunkSize; x < chunkX * map.chunkSize + map.chunkSize; x++) {
             for (int y = chunkY * map.chunkSize; y < chunkY * map.chunkSize + map.chunkSize; y++) {
-                Node checkedNode = GetNode(x, y);
+                Node checkedNode = controls.GetNode(x, y);
 
                 StateEffect(checkedNode);
                 VelocityEffect(checkedNode);
@@ -111,7 +77,7 @@ public class GameManager : MonoBehaviour {
         }
     }
 
-    private static void StateBehaviorSolid(Node node) {
+    private void StateBehaviorSolid(Node node) {
         node.accX = 0;
         node.accY = 0;
 
@@ -125,15 +91,15 @@ public class GameManager : MonoBehaviour {
             if (randomSide == 0) { randomSide = -1; }
 
             // check under
-            if (GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.gas ||
-                GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.liquid) {
+            if (controls.GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.gas ||
+                controls.GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.liquid) {
                 node.accY += -1;
                 node.accX = 0;
             }
             //check on the sides under
             else if (node.x + randomSide < map.maxX && node.x + randomSide > 0) {
-                if (GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas ||
-                    GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.liquid) {
+                if (controls.GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas ||
+                    controls.GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.liquid) {
                     node.accY += -1;
                     node.accX += randomSide;
                 }
@@ -161,28 +127,17 @@ public class GameManager : MonoBehaviour {
             if (randomSide == 0) { randomSide = -1; }
 
             // check under
-            if (GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.gas) {
+            if (controls.GetNode(node.x, node.y - 1).stateOfMatter == (int)StateName.gas) {
                 node.accY += -1;
                 node.accX = 0;
             }
-            //check on the sides under
-            else if (node.x + randomSide < map.maxX && node.x + randomSide > 0) {
-                if (GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas) {
-                    node.accY += -1;
-                    node.accX += randomSide;
-                }
-                //check on the sides
-                else if (GetNode(node.x + randomSide, node.y).stateOfMatter == (int)StateName.gas) {
-                    node.accY = 0;
-                    node.accX += randomSide;
-                }
-                else {
-                    node.accX = 0;
-                    node.accY = 0;
-
-                    node.velX = 0;
-                    node.velY = 0;
-                }
+            else if (controls.GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas) {
+                node.accY += -1;
+                node.accX += randomSide;
+            }
+            else if (controls.GetNode(node.x + randomSide, node.y).stateOfMatter == (int)StateName.gas) {
+                node.accY = 0;
+                node.accX += randomSide;
             }
             else {
                 node.accX = 0;
@@ -195,43 +150,45 @@ public class GameManager : MonoBehaviour {
     }
 
     void VelocityEffect(Node node) {
-        node.velX = node.accX;
-        node.velY = node.accY;
-
-        node.velX = Mathf.Clamp(node.velX, -1, 1);
-        node.velY = Mathf.Clamp(node.velY, -1, 1);
+        node.velX = Mathf.Clamp(node.accX, -1, 1);
+        node.velY = Mathf.Clamp(node.accY, -1, 1);
 
         // all stats are swapped between two cells, leaving only position unchanged to match the grid
-        if (node.cellType != 0) {
+        if (node.cellType != 0 && node.moved == false) {
             if (node.y > 1 && node.y < map.maxY - 1 && node.x > 1 && node.x < map.maxX - 1) {
-                Node exchangeNode = GetNode(node.x + node.velX, node.y + node.velY);
+                if (controls.GetNode(node.x + node.velX, node.y + node.velY).stateOfMatter != (int)StateName.solid){ 
+                Node exchangeNode = controls.GetNode(node.x + node.velX, node.y + node.velY);
 
-                if(exchangeNode.cellType != node.cellType) {
-                    int exPosX = exchangeNode.x;
-                    int exPosY = exchangeNode.y;
-                    int exType = exchangeNode.cellType;
+                    if (exchangeNode.cellType != node.cellType && exchangeNode.moved == false) {
+                        node.moved = true;
+                        exchangeNode.moved = true;
 
-                    int curPosX = node.x;
-                    int curPosY = node.y;
-                    int curType = node.cellType;
+                        int exPosX = exchangeNode.x;
+                        int exPosY = exchangeNode.y;
+                        int exType = exchangeNode.cellType;
 
-                    // switch position of the nodes
-                    map.grid[exPosX, exPosY] = node;
-                    map.grid[exPosX, exPosY].x = exPosX;
-                    map.grid[exPosX, exPosY].y = exPosY;
+                        int curPosX = node.x;
+                        int curPosY = node.y;
+                        int curType = node.cellType;
 
-                    map.grid[curPosX, curPosY] = exchangeNode;
-                    map.grid[curPosX, curPosY].x = curPosX;
-                    map.grid[curPosX, curPosY].y = curPosY;
+                        // switch position of the nodes
+                        map.grid[exPosX, exPosY] = node;
+                        map.grid[exPosX, exPosY].x = exPosX;
+                        map.grid[exPosX, exPosY].y = exPosY;
 
-                    // bring back types and set deltas
-                    // move to (other type)
-                    map.grid[exPosX, exPosY].cellTypeDelta = curType;
-                    map.grid[exPosX, exPosY].cellType = exType;
+                        map.grid[curPosX, curPosY] = exchangeNode;
+                        map.grid[curPosX, curPosY].x = curPosX;
+                        map.grid[curPosX, curPosY].y = curPosY;
 
-                    // move from (0 here)
-                    map.grid[curPosX, curPosY].cellTypeDelta = exType;
-                    map.grid[curPosX, curPosY].cellType = curType;
+                        // bring back types and set deltas
+                        // move to (other type)
+                        map.grid[exPosX, exPosY].cellTypeDelta = curType;
+                        map.grid[exPosX, exPosY].cellType = exType;
+
+                        //// move from (0 here)
+                        map.grid[curPosX, curPosY].cellTypeDelta = exType;
+                        map.grid[curPosX, curPosY].cellType = curType;
+                    }
                 }
             }
         }
@@ -244,8 +201,8 @@ public class GameManager : MonoBehaviour {
             if (chunkX > 0) { map.chunkAgeCounter[chunkX - 1, chunkY] = 0; }
         }
         // right
-        else if (node.x >= chunkX * map.chunkSize + map.chunkSize) {
-            if (chunkX < map.chunkMaxX) { map.chunkAgeCounter[chunkX + 1, chunkY] = 0; }
+        if (node.x >= chunkX * map.chunkSize + map.chunkSize - 2) {
+            if (chunkX + 1 < map.chunkMaxX) { map.chunkAgeCounter[chunkX + 1, chunkY] = 0; }
         }
 
         // bot
@@ -253,22 +210,22 @@ public class GameManager : MonoBehaviour {
             if (chunkY > 0) { map.chunkAgeCounter[chunkX, chunkY - 1] = 0; }
         }
         // top
-        else if (node.y >= chunkY * map.chunkSize + map.chunkSize) {
-            if (chunkY < map.chunkMaxY) { map.chunkAgeCounter[chunkX, chunkY + 1] = 0; }
+        if (node.y >= chunkY * map.chunkSize + map.chunkSize - 2) {
+            if (chunkY + 1 < map.chunkMaxY) { map.chunkAgeCounter[chunkX, chunkY + 1] = 0; }
         }
     }
 
     void UpdateGridTypes(int chunkX, int chunkY) {
         for (int x = chunkX * map.chunkSize; x < chunkX * map.chunkSize + map.chunkSize; x++) {
             for (int y = chunkY * map.chunkSize; y < chunkY * map.chunkSize + map.chunkSize; y++) {
-                Node checkedNode = GetNode(x, y);
+                Node checkedNode = controls.GetNode(x, y);
 
                 // No change to cell type occurs
-                if (checkedNode.cellType == checkedNode.cellTypeDelta) {
+                if (checkedNode.cellType == checkedNode.cellTypeDelta && checkedNode.moved == false) {
                     checkedNode.unchangedAge += 1;
 
                     // increase the counter for chunk check
-                    if (checkedNode.unchangedAge > 2) {
+                    if (checkedNode.unchangedAge > 20) {
                         map.chunkAgeCounter[chunkX, chunkY] += 1;
                     }
                 }
@@ -302,53 +259,15 @@ public class GameManager : MonoBehaviour {
 
     void ResetGridDelta(Node nodeToReset) {
         nodeToReset.cellTypeDelta = nodeToReset.cellType;
-    }
-
-    void PickPlacedType() {
-        if (Input.GetKeyDown(KeyCode.Alpha0)) { pickedType = 0; }
-        if (Input.GetKeyDown(KeyCode.Alpha1)) { pickedType = 1; }
-        if (Input.GetKeyDown(KeyCode.Alpha2)) { pickedType = 2; }
-        if (Input.GetKeyDown(KeyCode.Alpha3)) { pickedType = 3; }
-        if (Input.GetKeyDown(KeyCode.Alpha4)) { pickedType = 4; }
-        if (Input.GetKeyDown(KeyCode.Alpha5)) { pickedType = 5; }
-        if (Input.GetKeyDown(KeyCode.Alpha6)) { pickedType = 6; }
-    }
-
-    void GetMousePos() {
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        mousePos = ray.GetPoint(10);
-
-        curNode = GetNodeFromWorldPos(mousePos);
-    }
-
-    Node GetNodeFromWorldPos(Vector3 worldPos) {
-        int targetX = Mathf.RoundToInt(worldPos.x);
-        int targetY = Mathf.RoundToInt(worldPos.y);
-
-        return GetNode(targetX, targetY);
-    }
-
-    Node GetNode(int x, int y) {
-        if (x < 0 || y < 0 || x > map.maxX - 1 || y > map.maxY - 1) {
-            return null;
-        }
-        else {
-            return map.grid[x, y];
-        }
-    }
-
-    int Mod(int a, int b) {
-        if (a < b) {
-            return 0;
-        }
-
-        return (a - (a % b)) / b;
+        nodeToReset.moved = false;
     }
 }
 
 public class Node {
     public int x;
     public int y;
+
+    public bool moved = false;
 
     public int velX;
     public int velY;

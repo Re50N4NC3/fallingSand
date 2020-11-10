@@ -63,6 +63,7 @@
     <Compile Include="Assets\Scripts\Map controls\GameManager.cs" />
     <Compile Include="Assets\Scripts\Map controls\GenerateMap.cs" />
     <Compile Include="Assets\Scripts\Map controls\LoadJsonData.cs" />
+    <Compile Include="Assets\Scripts\Map controls\MapControls.cs" />
     <Reference Include="Unity.TextMeshPro.Editor">
       <HintPath>C:/Users/Tyst/fallingSand/Library/ScriptAssemblies/Unity.TextMeshPro.Editor.dll</HintPath>
     </Reference>
