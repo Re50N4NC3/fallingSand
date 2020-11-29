@@ -77,6 +77,7 @@ public class GameManager : MonoBehaviour {
         }
     }
 
+    // behaviors need a lot of work on conditions
     private void StateBehaviorSolid(Node node) {
         node.accX = 0;
         node.accY = 0;
@@ -131,7 +132,7 @@ public class GameManager : MonoBehaviour {
                 node.accY += -1;
                 node.accX = 0;
             }
-            else if (controls.GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas) {
+            else if (controls.GetNode(node.x + randomSide, node.y - 1).stateOfMatter == (int)StateName.gas) { 
                 node.accY += -1;
                 node.accX += randomSide;
             }

@@ -60,6 +60,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Assets\Scripts\Map controls\CharacterBehavior.cs" />
     <Compile Include="Assets\Scripts\Map controls\GameManager.cs" />
     <Compile Include="Assets\Scripts\Map controls\GenerateMap.cs" />
     <Compile Include="Assets\Scripts\Map controls\LoadJsonData.cs" />
