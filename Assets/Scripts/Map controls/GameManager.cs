@@ -9,7 +9,7 @@ public class GameManager : MonoBehaviour {
     private LoadJsonData.RootNodeData nodeData;  // loaded json data for all particles is here
     
     // nodes stats
-    enum StateName { solid, particle, gas, liquid, }
+    public enum StateName { solid, particle, gas, liquid, }
 
     private void Awake() {
         map = GetComponent<GenerateMap>();
